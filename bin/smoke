@@ -1,0 +1,78 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+# Real HTTP verification; target must be local (never probe public endpoints).
+require "json"
+require "net/http"
+require "securerandom"
+require "uri"
+
+BASE = URI(ENV.fetch("DEMO_URL", "http://127.0.0.1:3000"))
+unless BASE.scheme == "http" && %w[127.0.0.1 localhost].include?(BASE.host)
+  abort "Smoke runs only against HTTP localhost / 127.0.0.1"
+end
+
+def assert(value, what)
+  raise "FAIL: #{what}" unless value
+  puts "PASS: #{what}"
+end
+
+def request(path, payload: nil, headers: {})
+  uri = URI.join(BASE.to_s + "/", path.delete_prefix("/"))
+  req = payload ? Net::HTTP::Post.new(uri) : Net::HTTP::Get.new(uri)
+  req["A2A-Version"] = headers.fetch("A2A-Version", "1.0")
+  if payload
+    req["Content-Type"] = "application/json"
+    req.body = JSON.generate(payload)
+  end
+  response = Net::HTTP.start(uri.hostname, uri.port, open_timeout: 5, read_timeout: 15) { |http| http.request(req) }
+  [response.code.to_i, JSON.parse(response.body)]
+end
+
+def rpc(method, params, version: "1.0")
+  request("/a2a", payload: {
+    "jsonrpc" => "2.0",
+    "id" => SecureRandom.uuid,
+    "method" => method,
+    "params" => params
+  }, headers: { "A2A-Version" => version })
+end
+
+def send_message(text, context_id: nil)
+  msg = { "messageId" => SecureRandom.uuid, "role" => "ROLE_USER", "parts" => [{ "text" => text }] }
+  msg["contextId"] = context_id if context_id
+  rpc("SendMessage", { "message" => msg })
+end
+
+code, card = request("/.well-known/agent-card.json")
+assert(code == 200 && card["name"] == "Echo Agent", "Agent Card discovery")
+assert(card.fetch("supportedInterfaces").any? { |i|
+  i["protocolBinding"] == "JSONRPC" && i["protocolVersion"] == "1.0" && i["url"].end_with?("/a2a")
+}, "A2A Protocol 1.0 JSONRPC endpoint advertised")
+assert(card.fetch("skills").any? { |s| s["id"] == "reply" }, "Echo Skill advertised")
+
+code, task_reply = send_message("Hello from Rails")
+assert(code == 200 && task_reply.dig("result", "task"), "SendMessage default Task")
+task = task_reply.fetch("result").fetch("task")
+assert(task.dig("status", "state") == "TASK_STATE_COMPLETED", "Task completed")
+assert(task.fetch("artifacts").first.fetch("parts").first.fetch("text") == "Echo: Hello from Rails", "Task text Artifact")
+
+code, got = rpc("GetTask", { "id" => task.fetch("id") })
+assert(code == 200 && got.dig("result", "id") == task.fetch("id"), "GetTask")
+code, listed = rpc("ListTasks", { "contextId" => task.fetch("contextId"), "includeArtifacts" => true })
+assert(code == 200 && listed.dig("result", "totalSize") == 1, "ListTasks has one Task")
+assert(listed.dig("result", "tasks", 0, "id") == task.fetch("id"), "ListTasks scoped to context")
+
+code, direct_reply = send_message("direct: Hello", context_id: task.fetch("contextId"))
+assert(code == 200 && direct_reply.dig("result", "message"), "SendMessage direct Message")
+msg = direct_reply.fetch("result").fetch("message")
+assert(msg["role"] == "ROLE_AGENT" && !msg["messageId"].to_s.empty?, "Direct Message identity")
+assert(msg.fetch("parts").first.fetch("text") == "Echo: direct: Hello", "Direct Message text")
+assert(!direct_reply.fetch("result").key?("task"), "Direct response has no Task")
+_, after = rpc("ListTasks", { "contextId" => task.fetch("contextId") })
+assert(after.dig("result", "totalSize") == 1, "Direct Message did not persist Task")
+
+_, cancellation = rpc("CancelTask", { "id" => task.fetch("id") })
+assert(cancellation.dig("error", "code") == -32002, "Terminal Task cannot be canceled (-32002)")
+_, version = rpc("ListTasks", {}, version: "0.3")
+assert(version.dig("error", "code") == -32009, "Unsupported A2A protocol version rejected (-32009)")
+puts "Standalone a2a-rails-demo HTTP smoke: PASS"

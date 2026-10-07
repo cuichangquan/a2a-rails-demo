@@ -1,0 +1,75 @@
+name: Rails A2A Echo smoke
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RAILS_ENV: test
+      RACK_ENV: test
+      RAILS_MAX_THREADS: 1
+      WEB_CONCURRENCY: 0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4.10'
+          bundler-cache: true
+
+      - name: Start Rails on localhost only
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle exec rails server -b 127.0.0.1 -p 3000 > "$RUNNER_TEMP/demo-rails.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/demo-rails.pid"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/.well-known/agent-card.json > /dev/null 2>&1; then
+              exit 0
+            fi
+            if ! kill -0 "$(cat "$RUNNER_TEMP/demo-rails.pid")" 2>/dev/null; then
+              cat "$RUNNER_TEMP/demo-rails.log"
+              exit 1
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/demo-rails.log"
+          exit 1
+
+      - name: Verify actual HTTP Task and Message flows
+        run: bundle exec ruby bin/smoke
+
+      - name: Refuse production execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          if RAILS_ENV=production bundle exec rails runner 'puts :unexpectedly_started' > "$RUNNER_TEMP/production-guard.log" 2>&1; then
+            cat "$RUNNER_TEMP/production-guard.log"
+            echo "Demo must refuse production mode" >&2
+            exit 1
+          fi
+          grep -q "Demo is local-only" "$RUNNER_TEMP/production-guard.log"
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-smoke-logs
+          path: |
+            ${{ runner.temp }}/demo-rails.log
+            ${{ runner.temp }}/production-guard.log
+          retention-days: 7
+
+      - name: Stop local Rails server
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/demo-rails.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/demo-rails.pid")" 2>/dev/null || true
+          fi
