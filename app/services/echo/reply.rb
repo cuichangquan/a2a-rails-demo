@@ -6,3 +6,4 @@ module Echo
       "Echo: #{text}"
     end
   end
+end
