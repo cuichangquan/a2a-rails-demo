@@ -7,9 +7,9 @@ A standalone Rails application showing how a normal Rails app can expose an [A2A
 ## Requirements / release status
 
 - Ruby **3.4.10** (.ruby-version), Rails **8.1.0**, Puma **6.x**.
-- Git-pinned **unreleased** `a2a-rails` source commit **`fb99610e25d5c0a5cb04bb2865f83e3fb44aaabb`**.
+- Published RubyGems **`a2a-rails 0.2.0`**, pinned to the stable release (not a Git source checkout).
 - No database, Redis, Docker, credentials, or external AI provider.
-- Public RubyGems **a2a-rails 0.1.0** does **not** include the direct Message mode or subsequent security work. The Gem has **not** been republished.
+- This local-only demo uses the default process-local MemoryStore; optional v0.2.0 ActiveRecord/ActiveJob features are not configured.
 
 ## Quick Start
 
@@ -83,7 +83,13 @@ bundle exec ruby bin/smoke
 
 This checks Agent Card discovery, actual JSON-RPC protocol v1.0, a completed Task with a Text Artifact, GetTask, ListTasks, direct Message with **no Task persistence**, terminal CancelTask error (-32002), and unsupported protocol version rejection (-32009). The test refuses non-local target URLs.
 
-The same smoke runs in [GitHub Actions](.github/workflows/smoke.yml) on each push/PR.
+The same smoke runs in [GitHub Actions](.github/workflows/smoke.yml) on each push/PR. CI additionally verifies that the loaded Gem is **`a2a-rails 0.2.0` from RubyGems**, not a Git source dependency.
+
+To verify the installed Gem locally:
+
+```bash
+bundle exec ruby -e 'require "a2a-rails"; spec = Gem.loaded_specs.fetch("a2a-rails"); abort "Wrong version" unless spec.version.to_s == "0.2.0"; puts "#{spec.name} #{spec.version}: #{spec.full_gem_path}"'
+```
 
 ## Implementation files
 
