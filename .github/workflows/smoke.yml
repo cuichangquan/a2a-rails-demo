@@ -23,6 +23,20 @@ jobs:
           ruby-version: '3.4.10'
           bundler-cache: true
 
+      - name: Verify published RubyGems Gem
+        run: |
+          bundle exec ruby -e '
+            require "bundler"
+            require "a2a-rails"
+            spec = Gem.loaded_specs.fetch("a2a-rails")
+            resolved = Bundler.load.specs.find { |candidate| candidate.name == "a2a-rails" }
+            abort "Wrong a2a-rails version: #{spec.version}" unless spec.version.to_s == "0.2.0"
+            abort "Wrong A2A::Rails::VERSION" unless A2A::Rails::VERSION == "0.2.0"
+            abort "a2a-rails was not resolved from RubyGems" unless resolved&.source.is_a?(Bundler::Source::Rubygems)
+            puts "PASS: RubyGems a2a-rails #{spec.version}"
+            puts "Path: #{spec.full_gem_path}"
+          '
+
       - name: Start Rails on localhost only
         shell: bash
         run: |
