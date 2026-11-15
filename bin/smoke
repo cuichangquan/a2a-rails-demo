@@ -50,12 +50,7 @@ assert(card.fetch("supportedInterfaces").any? { |i|
   i["protocolBinding"] == "JSONRPC" && i["protocolVersion"] == "1.0" && i["url"].end_with?("/a2a")
 }, "A2A Protocol 1.0 JSONRPC endpoint advertised")
 assert(card.fetch("skills").any? { |s| s["id"] == "reply" }, "Echo Skill advertised")
-if ENV["A2A_GEM_SOURCE"] == "published"
-  assert(card.fetch("skills").map { |skill| skill.fetch("id") } == ["reply"], "Published Agent Card is Echo-only")
-  assert(!card.fetch("defaultInputModes").include?("application/json"), "Published Agent Card does not advertise Data input")
-elsif ARGV == ["--report"]
-  assert(card.fetch("skills").map { |skill| skill.fetch("id") }.sort == %w[reply report], "Candidate Agent Card includes Echo and report")
-end
+assert(card.fetch("skills").map { |skill| skill.fetch("id") }.sort == %w[reply report], "Published Agent Card includes Echo and report")
 
 code, task_reply = send_message("Hello from Rails")
 assert(code == 200 && task_reply.dig("result", "task"), "SendMessage default Task")
@@ -86,7 +81,7 @@ unless ARGV == ["--report"]
   puts "Standalone a2a-rails-demo Echo HTTP smoke: PASS"
   exit
 end
-# Candidate 0.4.0 report flow. No metadata workaround: conditions are a Data Part.
+# Published 0.4.0 report flow. No metadata workaround: conditions are a Data Part.
 def send_report(criteria)
   rpc("SendMessage", { "message" => { "messageId" => SecureRandom.uuid,
     "role" => "ROLE_USER", "parts" => [{ "data" => criteria }] } })

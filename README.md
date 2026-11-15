@@ -7,16 +7,20 @@ A standalone Rails application showing how a normal Rails app can expose an [A2A
 ## Requirements / release status
 
 - Ruby **3.4.10** (.ruby-version), Rails **8.1.4**, Puma **6.x**.
-- This change targets the **unpublished `a2a-rails 0.4.0` candidate**. `Gemfile` keeps the published baseline; `Gemfile.candidate` selects the explicitly pinned source revision for the report feature. Candidate validation does not fetch a nonexistent RubyGems 0.4.0 release. The last published baseline is 0.3.0; its text Echo remains the minimal example.
+- Published RubyGems **[`a2a-rails 0.4.0`](https://rubygems.org/gems/a2a-rails/versions/0.4.0)**, pinned in the ordinary `Gemfile`, not a Git source checkout. The same bundle supports the familiar Echo and structured report examples.
 - No database, Redis, Docker, credentials, or external AI provider.
 - This local-only demo uses the default process-local MemoryStore; optional ActiveRecord/ActiveJob features are not configured.
 
-The candidate retains the default inbound Server mode; this demo does not
+The demo retains the default inbound Server mode; it does not
 configure the outbound Client. The Gemfile also selects patched `net-imap
 ~> 0.5.15` for the consuming Rails host; check your resolved dependency graph
 and security advisories independently.
 
 ## Quick Start
+
+Before [PR #4](https://github.com/cuichangquan/a2a-rails-demo/pull/4) is merged,
+run `git switch feat/structured-report-demo` immediately after `cd` below to
+select this PR's files. After merge, the default `main` checkout is sufficient.
 
 ```bash
 git clone https://github.com/cuichangquan/a2a-rails-demo.git
@@ -33,10 +37,14 @@ curl -sS -H 'A2A-Version: 1.0' \
   http://127.0.0.1:3000/.well-known/agent-card.json
 ```
 
-Expected: Agent name **Echo Agent**, skill **reply**, `supportedInterfaces` containing JSONRPC protocol **1.0**, endpoint `/a2a`.
+Expected: Agent name **Echo Agent**, skills **reply** and **report**, `supportedInterfaces` containing JSONRPC protocol **1.0**, endpoint `/a2a`.
 
-This shortest Echo path uses the published 0.3.0 Gem. The report below is a
-separate, explicit candidate opt-in; ordinary `bundle install` does not enable it.
+The shortest Echo path is unchanged. Ordinary `bundle install` also enables the
+report below; no separate bundle or restart is needed to try it.
+
+If upgrading from the earlier candidate setup, stop the server, run
+`unset BUNDLE_GEMFILE`, then `bundle install` and restart using the commands above.
+The separate candidate Gemfile and temporary capability guard are no longer used.
 
 ### 1. SendMessage — default Task response
 
@@ -84,25 +92,8 @@ Expected fields:
 
 ### 3. Structured report — Data Part to a Rails Service
 
-First stop the Echo server with Ctrl-C. Before merge, select the candidate PR
-branch (published `main` does not contain the candidate files), install its
-separate Gemfile and restart:
-
-```sh
-git fetch origin feat/structured-report-demo
-git switch feat/structured-report-demo
-export BUNDLE_GEMFILE=Gemfile.candidate
-bundle install
-bundle exec rails server -b 127.0.0.1 -p 3000
-```
-
-The Agent Card now lists `reply` and `report`. Because both sources currently
-share a version constant, the demo temporarily checks the candidate's
-`A2A::Rails::Skill::DATA_INPUT_MODE` capability before declaring report and its
-Router. The published Gem remains Echo-only. This check is not protocol extension
-negotiation. Remove it after pinning a released Data-capable Gem during the
-separately approved release follow-up. To return to the published Echo dependency,
-stop the server, `unset BUNDLE_GEMFILE`, run `bundle install` and restart.
+Use the same running server and ordinary Gemfile from Quick Start. The Agent Card
+declares both Skills, and published 0.4.0 accepts the report's structured input.
 
 The `report` Skill accepts one Data Part with an object containing integer `year`
 (2000..2100), `month` (1..12), and positive `department_id`; no extra fields.
@@ -127,14 +118,12 @@ report with zero count and total. Replacing `month: 10` with `month: 13` produce
 `TASK_STATE_REJECTED` and no report Artifact, because the business conditions are
 invalid. Protocol acceptance and successful business completion are separate.
 
-Keep `BUNDLE_GEMFILE=Gemfile.candidate` in both terminals and for all candidate test commands.
-
 The existing Router selects `report` when a Data Part is present and `reply`
 otherwise. This is Skill selection, not authorization. The Gem checks the selected
 Skill's declared input mode before calling its Handler. `report` declares
 `input_modes: ["application/json"]`; omitting a Data Part's `mediaType` means
 `application/json`. Explicit incompatible media types and mixed text/Data input
-are not supported by this candidate. The report Handler also requires exactly
+are not supported by this release. The report Handler also requires exactly
 one Data Part; it does not merge several condition objects. `direct:` remains a
 text Echo-only response choice, so reports always return a Task.
 
@@ -163,12 +152,11 @@ Leave the Rails server running, and in a second terminal:
 
 ```bash
 bundle exec ruby bin/smoke
-# Candidate checkout and Gemfile only:
-BUNDLE_GEMFILE=Gemfile.candidate bundle exec ruby bin/smoke --report
+bundle exec ruby bin/smoke --report
 ```
 
 The no-argument command retains the minimal Echo checks. `--report` adds the
-candidate report checks. This checks Agent Card discovery, actual JSON-RPC protocol v1.0, a completed Task with a Text Artifact, GetTask, ListTasks, direct Message with **no Task persistence**, terminal CancelTask error (-32002), and unsupported protocol version rejection (-32009). It also checks the report Skill, exact aggregate result, retained conditions and Artifact after GetTask, and the rejected invalid-month case. The test refuses non-local target URLs.
+report checks. This checks Agent Card discovery, actual JSON-RPC protocol v1.0, a completed Task with a Text Artifact, GetTask, ListTasks, direct Message with **no Task persistence**, terminal CancelTask error (-32002), and unsupported protocol version rejection (-32009). It also checks the report Skill, exact aggregate result, retained conditions and Artifact after GetTask, and the rejected invalid-month case. The test refuses non-local target URLs.
 
 Run the SDK-independent business tests separately:
 
@@ -176,10 +164,23 @@ Run the SDK-independent business tests separately:
 bundle exec ruby test/sales_summary_test.rb
 ```
 
-The same smoke is the Server CI check in [GitHub Actions](.github/workflows/smoke.yml).
-Its two bounded jobs keep the published 0.3.0 Echo regression (`Gemfile`,
-`bin/smoke`) separate from the pinned candidate's Echo + report
-checks (`Gemfile.candidate`, `bin/smoke --report`). Each job has an eight-minute ceiling.
+Verify the actual installed release package and patched host dependencies:
+
+```bash
+bundle exec ruby bin/verify_release
+```
+
+This requires version 0.4.0 from a RubyGems source and checks the cached installed
+`.gem` against the SHA-256 of the exact published package:
+`77b36d4c1cc0db5ab028a35556f1495596f930a25922ff2bf29cde761d45132a`.
+It does not accept a Git candidate merely because its version matches. If the
+package cache was removed, use a fresh bundle installation before verification.
+
+The same checks run in [GitHub Actions](.github/workflows/smoke.yml). One bounded
+job verifies the published package, business Service, both no-argument Echo and
+`--report` HTTP smoke commands, and production boot refusal. The job retains an
+eight-minute ceiling. The earlier 0.3.0/candidate lanes are replaced by tests of
+the released 0.4.0, not by candidate-only coverage.
 The independent [Rails Client demo](https://github.com/cuichangquan/a2a-rails-client-demo)
 uses the existing isolated test-only TLS bridge for real Client-to-Server report
 validation. It preserves the shipped Client's HTTPS, origin and destination
@@ -188,14 +189,10 @@ unsupported; the Server curl example does not bypass or configure the Client.
 
 Local business tests establish filtering/validation only. Local `bin/smoke`
 establishes actual Server HTTP; the separate Client TLS harness establishes the
-cross-process candidate integration. Check the candidate's recorded SHA and actual
-CI results; historical 0.3.0 passes are not evidence for the new report feature.
-Formal Gem publication is separate. After publication, both demos must pin the
-published release and repeat the same checks before claiming released-Gem support.
-
-The candidate is identified by its exact Git SHA, not by a published version
-number. Its source still carries the 0.3.0 version constant until release
-preparation; the source-identity check distinguishes it from RubyGems 0.3.0.
+cross-process integration. The Client's matching 0.4.0 follow-up must use an
+exact pinned Server revision and independently resolve the published package.
+Check the exact revision's CI results; historical 0.3.0 or candidate passes are
+not evidence for released 0.4.0 interoperability.
 
 ## Implementation files
 
@@ -209,6 +206,7 @@ preparation; the source-identity check distinguishes it from RubyGems 0.3.0.
 | [config/initializers/a2a_rails.rb](config/initializers/a2a_rails.rb) | Gem registration |
 | [config/routes.rb](config/routes.rb) | Empty host routes; Gem mounts its own Engine |
 | [bin/smoke](bin/smoke) | End-to-end HTTP smoke |
+| [bin/verify_release](bin/verify_release) | Published package identity, SHA-256 and host dependency checks |
 | [.github/workflows/smoke.yml](.github/workflows/smoke.yml) | CI test environment |
 
 **No application-specific Echo behavior is added to the Gem.** Replace the Handler and Agent with your own service logic.

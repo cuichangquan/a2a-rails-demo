@@ -1,20 +1,13 @@
 # frozen_string_literal: true
 class EchoAgent < A2A::Rails::Agent
-  # Temporary candidate bridge: both sources currently say version 0.3.0.
-  # Keep the published Gem Echo-only. Remove this guard once the demos pin a
-  # released Data-capable Gem; it is not runtime protocol negotiation.
-  DATA_REPORT_SUPPORTED = A2A::Rails::Skill.const_defined?(:DATA_INPUT_MODE, false) &&
-    A2A::Rails::Skill::DATA_INPUT_MODE == "application/json"
   name "Echo Agent"
-  description(DATA_REPORT_SUPPORTED ? "Rails A2A Echo and synthetic sales report examples" : "Minimal Rails A2A JSON-RPC v1.0 Echo Agent")
+  description "Rails A2A Echo and synthetic sales report examples"
   execution_mode :sync
 
   # Existing Router API selects a declared Skill; it is not authorization.
-  if DATA_REPORT_SUPPORTED
-    router ->(message:, context:, skills:) {
-      message.fetch(:parts).any? { |part| part.key?(:data) } ? :report : :reply
-    }
-  end
+  router ->(message:, context:, skills:) {
+    message.fetch(:parts).any? { |part| part.key?(:data) } ? :report : :reply
+  }
   version "1.0"
 
   # Client text prefixed 'direct:' returns direct Message (no Task).
@@ -30,12 +23,10 @@ class EchoAgent < A2A::Rails::Agent
     tags: %w[echo demo],
     handler: Echo::Reply
 
-  if DATA_REPORT_SUPPORTED
-    skill :report,
-      description: "Summarize fixed synthetic sales by year, month and department",
-      tags: %w[report demo],
-      input_modes: ["application/json"],
-      output_modes: ["application/json"],
-      handler: Reports::Generate
-  end
+  skill :report,
+    description: "Summarize fixed synthetic sales by year, month and department",
+    tags: %w[report demo],
+    input_modes: ["application/json"],
+    output_modes: ["application/json"],
+    handler: Reports::Generate
 end
