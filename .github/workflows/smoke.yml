@@ -1,4 +1,4 @@
-name: Rails A2A Echo smoke
+name: Rails A2A published 0.4.0 Echo and report smoke
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 8
     env:
       RAILS_ENV: test
       RACK_ENV: test
@@ -23,24 +23,11 @@ jobs:
           ruby-version: '3.4.10'
           bundler-cache: true
 
-      - name: Verify published RubyGems Gem
-        run: |
-          bundle exec ruby -e '
-            require "bundler"
-            require "a2a-rails"
-            spec = Gem.loaded_specs.fetch("a2a-rails")
-            resolved = Bundler.load.specs.find { |candidate| candidate.name == "a2a-rails" }
-            abort "Wrong a2a-rails version: #{spec.version}" unless spec.version.to_s == "0.3.0"
-            abort "Wrong A2A::Rails::VERSION" unless A2A::Rails::VERSION == "0.3.0"
-            abort "a2a-rails was not resolved from RubyGems" unless resolved&.source.is_a?(Bundler::Source::Rubygems)
-            puts "PASS: RubyGems a2a-rails #{spec.version}"
-            json_spec = Bundler.load.specs.find { |candidate| candidate.name == "json" }
-            imap_spec = Bundler.load.specs.find { |candidate| candidate.name == "net-imap" }
-            abort "Unpatched json" unless json_spec && Gem::Requirement.new(">= 2.19.9", "< 3").satisfied_by?(json_spec.version)
-            abort "Unpatched net-imap" unless imap_spec && Gem::Requirement.new("~> 0.5.15").satisfied_by?(imap_spec.version)
-            puts "PASS: json #{json_spec.version}, net-imap #{imap_spec.version}"
-            puts "Path: #{spec.full_gem_path}"
-          '
+      - name: Verify published Gem source, package checksum and host dependencies
+        run: bundle exec ruby bin/verify_release
+
+      - name: Verify synthetic report business Service
+        run: bundle exec ruby test/sales_summary_test.rb
 
       - name: Start Rails on localhost only
         shell: bash
@@ -61,8 +48,11 @@ jobs:
           cat "$RUNNER_TEMP/demo-rails.log"
           exit 1
 
-      - name: Verify actual HTTP Task and Message flows
+      - name: Verify familiar no-argument Echo CLI over HTTP
         run: bundle exec ruby bin/smoke
+
+      - name: Verify actual HTTP report, Task and Message flows
+        run: bundle exec ruby bin/smoke --report
 
       - name: Refuse production execution
         shell: bash
