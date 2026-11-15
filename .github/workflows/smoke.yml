@@ -15,10 +15,10 @@ jobs:
         include:
           - source: published
             gemfile: Gemfile
-            smoke_args: --echo-only
+            smoke_args: ''
           - source: candidate
             gemfile: Gemfile.candidate
-            smoke_args: ''
+            smoke_args: --report
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:

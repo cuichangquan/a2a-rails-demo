@@ -22,8 +22,6 @@ and security advisories independently.
 git clone https://github.com/cuichangquan/a2a-rails-demo.git
 cd a2a-rails-demo
 
-# Use the reviewed candidate checkout and its pinned dependency before installing.
-export BUNDLE_GEMFILE=Gemfile.candidate
 bundle install
 bundle exec rails server -b 127.0.0.1 -p 3000
 ```
@@ -35,7 +33,10 @@ curl -sS -H 'A2A-Version: 1.0' \
   http://127.0.0.1:3000/.well-known/agent-card.json
 ```
 
-Expected: Agent name **Echo Agent**, skills **reply** and **report**, `supportedInterfaces` containing JSONRPC protocol **1.0**, endpoint `/a2a`.
+Expected: Agent name **Echo Agent**, skill **reply**, `supportedInterfaces` containing JSONRPC protocol **1.0**, endpoint `/a2a`.
+
+This shortest Echo path uses the published 0.3.0 Gem. The report below is a
+separate, explicit candidate opt-in; ordinary `bundle install` does not enable it.
 
 ### 1. SendMessage — default Task response
 
@@ -82,6 +83,26 @@ Expected fields:
 ```
 
 ### 3. Structured report — Data Part to a Rails Service
+
+First stop the Echo server with Ctrl-C. Before merge, select the candidate PR
+branch (published `main` does not contain the candidate files), install its
+separate Gemfile and restart:
+
+```sh
+git fetch origin feat/structured-report-demo
+git switch feat/structured-report-demo
+export BUNDLE_GEMFILE=Gemfile.candidate
+bundle install
+bundle exec rails server -b 127.0.0.1 -p 3000
+```
+
+The Agent Card now lists `reply` and `report`. Because both sources currently
+share a version constant, the demo temporarily checks the candidate's
+`A2A::Rails::Skill::DATA_INPUT_MODE` capability before declaring report and its
+Router. The published Gem remains Echo-only. This check is not protocol extension
+negotiation. Remove it after pinning a released Data-capable Gem during the
+separately approved release follow-up. To return to the published Echo dependency,
+stop the server, `unset BUNDLE_GEMFILE`, run `bundle install` and restart.
 
 The `report` Skill accepts one Data Part with an object containing integer `year`
 (2000..2100), `month` (1..12), and positive `department_id`; no extra fields.
@@ -142,9 +163,12 @@ Leave the Rails server running, and in a second terminal:
 
 ```bash
 bundle exec ruby bin/smoke
+# Candidate checkout and Gemfile only:
+BUNDLE_GEMFILE=Gemfile.candidate bundle exec ruby bin/smoke --report
 ```
 
-This checks Agent Card discovery, actual JSON-RPC protocol v1.0, a completed Task with a Text Artifact, GetTask, ListTasks, direct Message with **no Task persistence**, terminal CancelTask error (-32002), and unsupported protocol version rejection (-32009). It also checks the report Skill, exact aggregate result, retained conditions and Artifact after GetTask, and the rejected invalid-month case. The test refuses non-local target URLs.
+The no-argument command retains the minimal Echo checks. `--report` adds the
+candidate report checks. This checks Agent Card discovery, actual JSON-RPC protocol v1.0, a completed Task with a Text Artifact, GetTask, ListTasks, direct Message with **no Task persistence**, terminal CancelTask error (-32002), and unsupported protocol version rejection (-32009). It also checks the report Skill, exact aggregate result, retained conditions and Artifact after GetTask, and the rejected invalid-month case. The test refuses non-local target URLs.
 
 Run the SDK-independent business tests separately:
 
@@ -154,8 +178,8 @@ bundle exec ruby test/sales_summary_test.rb
 
 The same smoke is the Server CI check in [GitHub Actions](.github/workflows/smoke.yml).
 Its two bounded jobs keep the published 0.3.0 Echo regression (`Gemfile`,
-`bin/smoke --echo-only`) separate from the pinned candidate's Echo + report
-checks (`Gemfile.candidate`, `bin/smoke`). Each job has an eight-minute ceiling.
+`bin/smoke`) separate from the pinned candidate's Echo + report
+checks (`Gemfile.candidate`, `bin/smoke --report`). Each job has an eight-minute ceiling.
 The independent [Rails Client demo](https://github.com/cuichangquan/a2a-rails-client-demo)
 uses the existing isolated test-only TLS bridge for real Client-to-Server report
 validation. It preserves the shipped Client's HTTPS, origin and destination
