@@ -5,6 +5,7 @@ require "json"
 require "net/http"
 require "securerandom"
 require "uri"
+abort "Usage: bin/smoke [--echo-only]" unless ARGV.empty? || ARGV == ["--echo-only"]
 
 BASE = URI(ENV.fetch("DEMO_URL", "http://127.0.0.1:3000"))
 unless BASE.scheme == "http" && %w[127.0.0.1 localhost].include?(BASE.host)
@@ -75,4 +76,29 @@ _, cancellation = rpc("CancelTask", { "id" => task.fetch("id") })
 assert(cancellation.dig("error", "code") == -32002, "Terminal Task cannot be canceled (-32002)")
 _, version = rpc("ListTasks", {}, version: "0.3")
 assert(version.dig("error", "code") == -32009, "Unsupported A2A protocol version rejected (-32009)")
-puts "Standalone a2a-rails-demo HTTP smoke: PASS"
+if ARGV == ["--echo-only"]
+  puts "Standalone published a2a-rails-demo Echo HTTP smoke: PASS"
+  exit
+end
+# Candidate 0.4.0 report flow. No metadata workaround: conditions are a Data Part.
+def send_report(criteria)
+  rpc("SendMessage", { "message" => { "messageId" => SecureRandom.uuid,
+    "role" => "ROLE_USER", "parts" => [{ "data" => criteria }] } })
+end
+
+report_skill = card.fetch("skills").find { |skill| skill["id"] == "report" }
+assert(report_skill && report_skill["inputModes"] == ["application/json"], "Report Skill declares Data input")
+conditions = { "year" => 2026, "month" => 10, "department_id" => 123 }
+expected_report = conditions.merge("sales_count" => 3, "total_amount" => 35_000, "currency" => "JPY")
+code, report_reply = send_report(conditions)
+report = report_reply.dig("result", "task")
+assert(code == 200 && report && report.dig("status", "state") == "TASK_STATE_COMPLETED", "Report Task completed")
+assert(report.dig("artifacts", 0, "parts", 0, "data") == expected_report, "Report business result matches fixed sales")
+_, fetched_report = rpc("GetTask", { "id" => report.fetch("id"), "historyLength" => 1 })
+assert(fetched_report.dig("result", "artifacts", 0, "parts", 0, "data") == expected_report, "GetTask preserves report Data Artifact")
+assert(fetched_report.dig("result", "history", 0, "parts", 0, "data") == conditions, "GetTask preserves report conditions")
+_, invalid_report = send_report(conditions.merge("month" => 13))
+rejected = invalid_report.dig("result", "task")
+assert(rejected && rejected.dig("status", "state") == "TASK_STATE_REJECTED", "Invalid report month is a rejected Task")
+assert(Array(rejected["artifacts"]).empty?, "Invalid conditions produce no report Artifact")
+puts "Standalone a2a-rails-demo Echo and report HTTP smoke: PASS"
