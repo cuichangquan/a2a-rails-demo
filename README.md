@@ -6,7 +6,7 @@ A standalone Rails application showing how a normal Rails app can expose an [A2A
 
 ## Requirements / release status
 
-- Ruby **3.4.10** (.ruby-version), Rails **8.1.4**, Puma **6.x**.
+- Ruby **3.4.10** (.ruby-version), Rails **8.1.4.1**, Puma **6.x**.
 - Published RubyGems **[`a2a-rails 0.4.0`](https://rubygems.org/gems/a2a-rails/versions/0.4.0)**, pinned in the ordinary `Gemfile`, not a Git source checkout. The same bundle supports the familiar Echo and structured report examples.
 - No database, Redis, Docker, credentials, or external AI provider.
 - This local-only demo uses the default process-local MemoryStore; optional ActiveRecord/ActiveJob features are not configured.
