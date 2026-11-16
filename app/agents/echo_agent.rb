@@ -24,9 +24,9 @@ class EchoAgent < A2A::Rails::Agent
     handler: Echo::Reply
 
   skill :report,
-    description: "Summarize fixed synthetic sales by year, month and department",
+    description: "Summarize fixed sales; ask for missing year, month or department",
     tags: %w[report demo],
     input_modes: ["application/json"],
-    output_modes: ["application/json"],
+    output_modes: ["application/json", "text/plain"],
     handler: Reports::Generate
 end
