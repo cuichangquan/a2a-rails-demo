@@ -13,12 +13,11 @@ matches the final core CI artifact; prior candidate evidence remains in Git hist
 ## Quick Start
 
 Ruby 3.4.10, Rails 8.1.4.1 and Bundler are required. No database, queue, LLM,
-external service or new cloud resource is needed. Until this follow-up PR is merged, select its branch; afterward main is sufficient.
+external service or new cloud resource is needed.
 
 ```sh
 git clone https://github.com/cuichangquan/a2a-rails-demo.git
 cd a2a-rails-demo
-git switch chore/public-050 # until this follow-up PR is merged
 bundle install
 bundle exec ruby bin/verify_release
 bundle exec rails server -b 127.0.0.1 -p 3000
