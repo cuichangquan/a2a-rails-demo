@@ -1,4 +1,4 @@
-name: Rails A2A continuation candidate smoke
+name: Rails A2A continuation published 0.5.0 smoke
 
 on:
   push:
@@ -23,8 +23,8 @@ jobs:
           ruby-version: '3.4.10'
           bundler-cache: true
 
-      - name: Verify pinned unpublished candidate and host dependencies
-        run: bundle exec ruby bin/verify_candidate
+      - name: Verify published package and host dependencies
+        run: bundle exec ruby bin/verify_release
 
       - name: Verify synthetic report business Service
         run: |

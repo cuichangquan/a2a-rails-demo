@@ -1,10 +1,10 @@
 # a2a-rails-demo — Echo, report and same-Task continuation
 
 A standalone Rails host for [a2a-rails](https://github.com/cuichangquan/a2a-rails),
-using A2A v1.0 JSON-RPC. **This branch tests an unpublished 0.5.0 candidate**, not
-an available RubyGems 0.5.0 release. [candidate.json](candidate.json) records the
-exact Gem version and full Git revision used by the Gemfile and CI.
-The released baseline is 0.4.0; prior release evidence remains in Git history.
+using A2A v1.0 JSON-RPC. Both demos install **published RubyGems 0.5.0**,
+not a Git/path candidate. [release.json](release.json) records the exact version
+and package SHA-256 verified by `bin/verify_release` and CI. The public package
+matches the final core CI artifact; prior candidate evidence remains in Git history.
 
 > **Local/demo only.** Anonymous requests are allowed only in development/test.
 > Production/staging boot is refused. Bind only to `127.0.0.1`, never LAN/internet.
@@ -13,15 +13,14 @@ The released baseline is 0.4.0; prior release evidence remains in Git history.
 ## Quick Start
 
 Ruby 3.4.10, Rails 8.1.4.1 and Bundler are required. No database, queue, LLM,
-external service or new cloud resource is needed. Use this candidate PR branch
-until it is merged; default main still shows the released baseline.
+external service or new cloud resource is needed. Until this follow-up PR is merged, select its branch; afterward main is sufficient.
 
 ```sh
 git clone https://github.com/cuichangquan/a2a-rails-demo.git
 cd a2a-rails-demo
-git switch feat/task-continuation-demo
+git switch chore/public-050 # until this follow-up PR is merged
 bundle install
-bundle exec ruby bin/verify_candidate
+bundle exec ruby bin/verify_release
 bundle exec rails server -b 127.0.0.1 -p 3000
 ```
 
@@ -119,13 +118,13 @@ bundle exec ruby test/sales_summary_test.rb
 bundle exec ruby test/conditions_test.rb
 bundle exec ruby test/generate_test.rb
 bundle exec ruby test/log_filter_test.rb
-bundle exec ruby bin/verify_candidate
+bundle exec ruby bin/verify_release
 ```
 
-[CI](.github/workflows/smoke.yml) verifies the exact candidate source, patched
+[CI](.github/workflows/smoke.yml) verifies the public RubyGems source, version and cached package SHA-256, patched
 host dependencies, business/Handler tests, real HTTP Echo and continuation, and
 production boot refusal. The independent [Client demo](https://github.com/cuichangquan/a2a-rails-client-demo)
-pins this Server commit and the same Gem candidate for isolated real TLS tests.
+pins this Server commit and the same released Gem for isolated real TLS tests.
 No Client HTTPS, destination or certificate protections are weakened in runtime.
 Rails parameter logging filters the whole SendMessage `message`, including
 original inputs and answers. Questions/errors use fixed demo explanations.
@@ -137,11 +136,21 @@ public internet service is added. See the Gem's SDK-boundary and continuation
 design/upgrade guides for core contracts. A passing demo is not full A2A
 conformance certification.
 
-## After formal release (separate authorization)
+## Published-package verification and pin maintenance
 
-Only after the owner publishes and verifies the released Gem: replace candidate
-Git pins with the public version, verify package identity, rerun Server HTTP and
-Client TLS against that public package, and update both READMEs. Do not tag,
-publish, merge or deploy merely because candidate checks pass.
+`bin/verify_release` performs local checks only: RubyGems source (not Git/path),
+version 0.5.0, installed cached `.gem` SHA-256, Rails 8.1.4.1 and existing json /
+net-imap bounds. The exact public checksum is:
+
+```
+051cf312b9ff3f11583205b871adcd942f237335a45937a12f483e1a3d7833de
+```
+
+If the install cache is absent, reinstall the bundle before verification; the
+checker does not fetch or silently bypass the checksum. Client CI pins this
+Server's full commit SHA. A squash merge creates a different main SHA, so verify
+the pinned commit remains fetchable and its tree matches main before deleting
+its branch. If that cannot be retained, update Client's pin to the merged commit
+and rerun TLS. This follow-up does not authorize merge, tag or deployment.
 
 MIT.
