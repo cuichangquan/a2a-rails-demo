@@ -21,7 +21,10 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.4.10'
-          bundler-cache: true
+          bundler-cache: false
+
+      - name: Fresh dependency resolution
+        run: bundle install --jobs 2 --retry 0
 
       - name: Verify published package and host dependencies
         run: bundle exec ruby bin/verify_release
@@ -32,6 +35,7 @@ jobs:
           bundle exec ruby test/conditions_test.rb
           bundle exec ruby test/generate_test.rb
           bundle exec ruby test/log_filter_test.rb
+          bundle exec ruby test/dependency_compatibility_test.rb
 
       - name: Start Rails on localhost only
         shell: bash
