@@ -5,7 +5,7 @@ require "json"
 require "net/http"
 require "securerandom"
 require "uri"
-abort "Usage: bin/smoke [--report]" unless ARGV.empty? || ARGV == ["--report"]
+abort "Usage: bin/smoke [--report|--continuation]" unless ARGV.empty? || ARGV == ["--report"] || ARGV == ["--continuation"]
 
 BASE = URI(ENV.fetch("DEMO_URL", "http://127.0.0.1:3000"))
 unless BASE.scheme == "http" && %w[127.0.0.1 localhost].include?(BASE.host)
@@ -50,7 +50,7 @@ assert(card.fetch("supportedInterfaces").any? { |i|
   i["protocolBinding"] == "JSONRPC" && i["protocolVersion"] == "1.0" && i["url"].end_with?("/a2a")
 }, "A2A Protocol 1.0 JSONRPC endpoint advertised")
 assert(card.fetch("skills").any? { |s| s["id"] == "reply" }, "Echo Skill advertised")
-assert(card.fetch("skills").map { |skill| skill.fetch("id") }.sort == %w[reply report], "Published Agent Card includes Echo and report")
+assert(card.fetch("skills").map { |skill| skill.fetch("id") }.sort == %w[reply report], "Agent Card includes Echo and report")
 
 code, task_reply = send_message("Hello from Rails")
 assert(code == 200 && task_reply.dig("result", "task"), "SendMessage default Task")
@@ -77,11 +77,11 @@ _, cancellation = rpc("CancelTask", { "id" => task.fetch("id") })
 assert(cancellation.dig("error", "code") == -32002, "Terminal Task cannot be canceled (-32002)")
 _, version = rpc("ListTasks", {}, version: "0.3")
 assert(version.dig("error", "code") == -32009, "Unsupported A2A protocol version rejected (-32009)")
-unless ARGV == ["--report"]
+if ARGV.empty?
   puts "Standalone a2a-rails-demo Echo HTTP smoke: PASS"
   exit
 end
-# Published 0.4.0 report flow. No metadata workaround: conditions are a Data Part.
+# Existing one-shot report flow. No metadata workaround: conditions are a Data Part.
 def send_report(criteria)
   rpc("SendMessage", { "message" => { "messageId" => SecureRandom.uuid,
     "role" => "ROLE_USER", "parts" => [{ "data" => criteria }] } })
@@ -103,3 +103,41 @@ rejected = invalid_report.dig("result", "task")
 assert(rejected && rejected.dig("status", "state") == "TASK_STATE_REJECTED", "Invalid report month is a rejected Task")
 assert(Array(rejected["artifacts"]).empty?, "Invalid conditions produce no report Artifact")
 puts "Standalone a2a-rails-demo Echo and report HTTP smoke: PASS"
+exit unless ARGV == ["--continuation"]
+
+def answer_report(task_id, criteria)
+  rpc("SendMessage", { "message" => { "messageId" => SecureRandom.uuid,
+    "taskId" => task_id, "role" => "ROLE_USER", "parts" => [{ "data" => criteria }] } })
+end
+
+_, waiting_reply = send_report({ "year" => 2026, "month" => 10 })
+waiting = waiting_reply.dig("result", "task")
+assert(waiting && waiting.dig("status", "state") == "TASK_STATE_INPUT_REQUIRED", "Missing department asks for input")
+id = waiting.fetch("id")
+context_id = waiting.fetch("contextId")
+assert(waiting.dig("status", "message", "parts").any? { |part| part["text"] == "Please provide: department_id." }, "Question is a Task status message")
+_, got_waiting = rpc("GetTask", { "id" => id, "historyLength" => 0 })
+assert(got_waiting.dig("result", "status", "state") == "TASK_STATE_INPUT_REQUIRED", "Waiting Task can be fetched without response history")
+_, waiting_list = rpc("ListTasks", { "contextId" => context_id })
+assert(waiting_list.dig("result", "tasks").any? { |entry| entry["id"] == id && entry.dig("status", "state") == "TASK_STATE_INPUT_REQUIRED" }, "Waiting Task can be listed")
+_, completed_reply = answer_report(id, { "department_id" => 123 })
+completed = completed_reply.dig("result", "task")
+assert(completed && completed["id"] == id && completed["contextId"] == context_id, "Answer preserves Task and context")
+assert(completed.dig("status", "state") == "TASK_STATE_COMPLETED" && completed.dig("artifacts", 0, "parts", 0, "data") == expected_report, "Same Task returns combined criteria and exact aggregate")
+_, terminal = answer_report(id, { "department_id" => 123 })
+assert(terminal.dig("error", "code") == -32004 && !terminal["result"], "New answer to completed Task is rejected")
+
+_, repeat_reply = send_report({ "year" => 2026 })
+repeat_id = repeat_reply.dig("result", "task", "id")
+_, repeated = answer_report(repeat_id, { "month" => 10 })
+assert(repeated.dig("result", "task", "id") == repeat_id && repeated.dig("result", "task", "status", "state") == "TASK_STATE_INPUT_REQUIRED", "Incomplete answer asks again on same Task")
+_, repeat_complete = answer_report(repeat_id, { "department_id" => 123 })
+assert(repeat_complete.dig("result", "task", "id") == repeat_id && repeat_complete.dig("result", "task", "artifacts", 0, "parts", 0, "data") == expected_report, "Two answers complete original Task")
+
+_, cancel_reply = send_report({ "year" => 2026, "month" => 10 })
+cancel_id = cancel_reply.dig("result", "task", "id")
+_, canceled = rpc("CancelTask", { "id" => cancel_id })
+assert(canceled.dig("result", "status", "state") == "TASK_STATE_CANCELED", "Input-required Task can be canceled")
+_, late_answer = answer_report(cancel_id, { "department_id" => 123 })
+assert(late_answer.dig("error", "code") == -32004 && !late_answer["result"], "Late answer does not revive canceled Task")
+puts "Standalone a2a-rails-demo continuation HTTP smoke: PASS"

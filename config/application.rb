@@ -17,5 +17,8 @@ module A2ARailsDemo
     config.eager_load = false
     config.secret_key_base = SecureRandom.hex(64)
     config.logger = Logger.new($stdout)
+    # Task answers may contain private business input. Rails otherwise logs the
+    # whole SendMessage envelope in request parameters (including nested copies).
+    config.filter_parameters += [:message, :parts, :data]
   end
 end

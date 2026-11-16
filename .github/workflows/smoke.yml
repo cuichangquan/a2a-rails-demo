@@ -1,4 +1,4 @@
-name: Rails A2A published 0.4.0 Echo and report smoke
+name: Rails A2A continuation candidate smoke
 
 on:
   push:
@@ -23,11 +23,15 @@ jobs:
           ruby-version: '3.4.10'
           bundler-cache: true
 
-      - name: Verify published Gem source, package checksum and host dependencies
-        run: bundle exec ruby bin/verify_release
+      - name: Verify pinned unpublished candidate and host dependencies
+        run: bundle exec ruby bin/verify_candidate
 
       - name: Verify synthetic report business Service
-        run: bundle exec ruby test/sales_summary_test.rb
+        run: |
+          bundle exec ruby test/sales_summary_test.rb
+          bundle exec ruby test/conditions_test.rb
+          bundle exec ruby test/generate_test.rb
+          bundle exec ruby test/log_filter_test.rb
 
       - name: Start Rails on localhost only
         shell: bash
@@ -52,7 +56,7 @@ jobs:
         run: bundle exec ruby bin/smoke
 
       - name: Verify actual HTTP report, Task and Message flows
-        run: bundle exec ruby bin/smoke --report
+        run: bundle exec ruby bin/smoke --continuation
 
       - name: Refuse production execution
         shell: bash

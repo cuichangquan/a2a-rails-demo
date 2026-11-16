@@ -4,6 +4,7 @@ require "bundler"
 require "digest"
 require "a2a-rails"
 
+# Historical 0.4.0 baseline verifier. Current candidate: bin/verify_candidate.
 # SHA-256 of the exact a2a-rails 0.4.0 package published to RubyGems.
 RELEASE_SHA256 = "77b36d4c1cc0db5ab028a35556f1495596f930a25922ff2bf29cde761d45132a"
 spec = Gem.loaded_specs.fetch("a2a-rails")
