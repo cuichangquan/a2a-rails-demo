@@ -1,8 +1,11 @@
 # Temporary regexp_parser compatibility pin
 
-The demo pins `regexp_parser = 2.13.1` while retaining the exact published
-`a2a-rails = 0.5.0` package and all Rails/json/net-imap checks. This is a consuming
-application resolution workaround, not a core Gem or SDK patch.
+The demo retains its explicit `regexp_parser = 2.13.1` pin and all
+Rails/json/net-imap checks while upgrading to the [published
+`a2a-rails = 0.5.1` package](https://rubygems.org/gems/a2a-rails/versions/0.5.1).
+The Gem now also bounds the parser below 2.13.2. The demo keeps the tested
+host pin for this version-only upgrade; the evidence below is historical
+and describes the original consuming-application workaround on 0.5.0.
 
 ## Evidence checked on 2026-11-16 UTC
 
