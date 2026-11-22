@@ -1,7 +1,7 @@
 # a2a-rails-demo — Echo, report and same-Task continuation
 
 A standalone Rails host for [a2a-rails](https://github.com/cuichangquan/a2a-rails),
-using A2A v1.0 JSON-RPC. Both demos install **published RubyGems 0.5.0**,
+using A2A v1.0 JSON-RPC. This Server installs **published RubyGems 0.5.1**,
 not a Git/path candidate. [release.json](release.json) records the exact version
 and package SHA-256 verified by `bin/verify_release` and CI. The public package
 matches the final core CI artifact; prior candidate evidence remains in Git history.
@@ -123,7 +123,8 @@ bundle exec ruby bin/verify_release
 [CI](.github/workflows/smoke.yml) verifies the public RubyGems source, version and cached package SHA-256, patched
 host dependencies, business/Handler tests, real HTTP Echo and continuation, and
 production boot refusal. The independent [Client demo](https://github.com/cuichangquan/a2a-rails-client-demo)
-pins this Server commit and the same released Gem for isolated real TLS tests.
+pins a specific Server commit and matching released Gem for isolated real TLS tests.
+See the Client workflow for its exact current pin and verification result.
 No Client HTTPS, destination or certificate protections are weakened in runtime.
 Rails parameter logging filters the whole SendMessage `message`, including
 original inputs and answers. Questions/errors use fixed demo explanations.
@@ -138,11 +139,11 @@ conformance certification.
 ## Published-package verification and pin maintenance
 
 `bin/verify_release` performs local checks only: RubyGems source (not Git/path),
-version 0.5.0, installed cached `.gem` SHA-256, Rails 8.1.4.1 and existing json /
-net-imap bounds. The exact public checksum is:
+version 0.5.1, installed cached `.gem` SHA-256, Rails 8.1.4.1 and existing json /
+net-imap bounds, and the temporary regexp_parser pin. The exact public checksum is:
 
 ```
-051cf312b9ff3f11583205b871adcd942f237335a45937a12f483e1a3d7833de
+c0848ea37d772dabc628b6e2b3be88187f5aeebea6d5107a3d5f81108085acb1
 ```
 
 If the install cache is absent, reinstall the bundle before verification; the
