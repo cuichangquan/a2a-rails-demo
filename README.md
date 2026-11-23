@@ -12,7 +12,7 @@ matches the final core CI artifact; prior candidate evidence remains in Git hist
 
 ## Quick Start
 
-Ruby 3.4.10, Rails 8.1.4.1 and Bundler are required. No database, queue, LLM,
+Ruby 3.4.13, Rails 8.1.4.1 and Bundler are required. No database, queue, LLM,
 external service or new cloud resource is needed.
 
 ```sh
