@@ -32,6 +32,19 @@ class GenerateTest < Minitest::Test
     assert_equal 35_000, result["total_amount"]
   end
 
+  def test_struct_client_whole_float_values_support_question_and_answer
+    initial = user("year" => 2026.0, "month" => 10.0)
+    waiting = Reports::Generate.call(message: initial, context: { history: [initial] })
+    assert_instance_of A2A::Rails::InputRequired, waiting
+
+    question = { role: :agent, parts: [{ data: { "missing_fields" => ["department_id"] } }] }
+    answer = user("department_id" => 123.0)
+    result = Reports::Generate.call(message: answer, context: { history: [initial, question, answer] })
+    assert_equal 3, result["sales_count"]
+    assert_equal 35_000, result["total_amount"]
+    assert_equal "JPY", result["currency"]
+  end
+
   def test_invalid_month_remains_rejected_even_when_department_missing
     message = user("year" => 2026, "month" => 13)
     assert_raises(A2A::Rails::RejectedTask) { Reports::Generate.call(message: message, context: {}) }
